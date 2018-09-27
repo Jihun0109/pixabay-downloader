@@ -1,14 +1,6 @@
 # -*- coding: utf-8 -*-
 from scrapy import Spider, Request
-from scrapy.http import FormRequest
-from urlparse import urlparse
-import sys
-import re, os, requests, urllib
-from scrapy.utils.response import open_in_browser
-from collections import OrderedDict
-import time
-from shutil import copyfile
-import json, re, csv
+import re, requests
 
 g_types = ['photo','video', 'vector','illustration']
 
@@ -44,9 +36,9 @@ class PixabaySpider(Spider):
 	def parse(self, response):
 		if self.type not in g_types:
 			print "Invalid type: type should be one of 'photo','video', 'vector' and 'illustration'"
+			return
 			
 		base_url = "https://pixabay.com/en/editors_choice/?media_type={}".format(self.type)
-
 		yield Request(base_url, self.parse_category)
 
 	def parse_category(self, response):
@@ -78,4 +70,6 @@ class PixabaySpider(Spider):
 			download(src, target_path+file_name)
 
 			
-			break
+		next_link = response.xpath('//*[@class="pure-button next"]/@href').extract_first()
+		if next_link:
+			yield Request(response.urljoin(next_link), self.parse_category)
