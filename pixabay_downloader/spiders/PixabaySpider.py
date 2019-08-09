@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 from scrapy import Spider, Request
-import re, requests
+import re, requests, os
 
 g_types = ['photo','video', 'vector','illustration']
 
 def download(url, destfilename):
 	if not os.path.exists(destfilename):
-		print "Downloading from {} to {}...".format(url, destfilename)
+		print ("Downloading from %s to %s..." % (url, destfilename))
 		try:
 			r = requests.get(url, stream=True)
 			with open(destfilename, 'wb') as f:
@@ -15,7 +15,7 @@ def download(url, destfilename):
 						f.write(chunk)
 						f.flush()
 		except:
-			print "Error downloading file."
+			print ("Error downloading file.")
 
 class PixabaySpider(Spider):
 	name = "pixabay"
@@ -25,6 +25,7 @@ class PixabaySpider(Spider):
 	]
 
 	type = "photo"
+	keyword = "development"
 	thumbnail = False
 
 	
@@ -35,10 +36,12 @@ class PixabaySpider(Spider):
 
 	def parse(self, response):
 		if self.type not in g_types:
-			print "Invalid type: type should be one of 'photo','video', 'vector' and 'illustration'"
+			print ("Invalid type: type should be one of 'photo','video', 'vector' and 'illustration'")
 			return
 			
 		base_url = "https://pixabay.com/en/editors_choice/?media_type={}".format(self.type)
+		if self.keyword is not "":
+			base_url = "https://pixabay.com/images/search/{}/".format(self.keyword)
 		yield Request(base_url, self.parse_category)
 
 	def parse_category(self, response):
@@ -47,7 +50,7 @@ class PixabaySpider(Spider):
 		if not os.path.exists(target_path):
 			os.makedirs(target_path)
 		items = response.xpath('//*[@class="item"]/a')
-		print len(items)
+		print (len(items))
 		for item in items:
 			if self.type in ["photo","illustration","vector"]:
 				src = item.xpath('./img/@src').extract_first()
@@ -61,7 +64,7 @@ class PixabaySpider(Spider):
 			elif self.type == "video":
 				# video_url = "https://pixabay.com/en/videos/download/video-7328_large.mp4?attachment"
 				link = item.xpath('./@href').extract_first()
-				print link
+				print (link)
 				id = link.split("-")[-1].replace('/','')
 				src = "https://pixabay.com/en/videos/download/video-{}_large.mp4?attachment".format(id)
 				file_extension = ".mp4"
@@ -70,6 +73,7 @@ class PixabaySpider(Spider):
 			download(src, target_path+file_name)
 
 			
-		next_link = response.xpath('//*[@class="pure-button next"]/@href').extract_first()
-		if next_link:
-			yield Request(response.urljoin(next_link), self.parse_category)
+		next_link = response.xpath('//*[@class="pure-button"]/@href').extract()
+		print (next_link)
+		if len(next_link) > 1:
+			yield Request(response.urljoin(next_link[-1]), self.parse_category)
